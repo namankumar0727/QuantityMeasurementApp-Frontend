@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quantity Measurement — Dashboard</title>
+
+  <!-- Stylesheets -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,800;1,9..144,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/global.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpolygon points='16,2 28,9 28,23 16,30 4,23 4,9' fill='%231B2A6B'/%3E%3Ccircle cx='16' cy='19' r='3' fill='%23E53935'/%3E%3Cline x1='8' y1='14' x2='24' y2='14' stroke='%23E53935' stroke-width='1.5'/%3E%3Cline x1='8' y1='10' x2='8' y2='14' stroke='white' stroke-width='1.5'/%3E%3Cline x1='13' y1='12' x2='13' y2='14' stroke='white' stroke-width='1.5'/%3E%3Cline x1='19' y1='12' x2='19' y2='14' stroke='white' stroke-width='1.5'/%3E%3Cline x1='24' y1='10' x2='24' y2='14' stroke='white' stroke-width='1.5'/%3E%3C/svg%3E" />
+</head>
+<body>
+
+<!-- ══════════════════════════════
+     TOP NAVIGATION BAR
+══════════════════════════════ -->
+<header class="topbar" role="banner">
+
+  <!-- Logo (white version for dark bar) -->
+  <a href="dashboard.html" class="topbar__logo" aria-label="Quantity Measurement — Home">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" fill="none">
+      <polygon points="24,4 40,13 40,31 24,40 8,31 8,13" fill="white" opacity="0.2"/>
+      <polygon points="24,6 38,14 38,30 24,38 10,30 10,14" fill="none" stroke="white" stroke-opacity="0.4" stroke-width="1"/>
+      <line x1="15" y1="22" x2="33" y2="22" stroke="#E53935" stroke-width="2" stroke-linecap="round"/>
+      <line x1="15" y1="17.5" x2="15" y2="22" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="19.5" y1="19.5" x2="19.5" y2="22" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="24" y1="17.5" x2="24" y2="22" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="28.5" y1="19.5" x2="28.5" y2="22" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="33" y1="17.5" x2="33" y2="22" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      <circle cx="24" cy="29" r="3" fill="#E53935"/>
+      <text x="50" y="20" font-family="'Outfit',sans-serif" font-size="13" font-weight="700" fill="white" letter-spacing="0.5">QUANTITY</text>
+      <text x="50" y="36" font-family="'Outfit',sans-serif" font-size="10" font-weight="400" fill="#E53935" letter-spacing="3">MEASUREMENT</text>
+    </svg>
+  </a>
+
+  <div class="topbar__spacer" aria-hidden="true"></div>
+
+  <!-- User info chip -->
+  <div class="topbar__user" aria-label="Logged in user">
+    <div class="topbar__avatar" id="nav-avatar" aria-hidden="true">U</div>
+    <span class="topbar__username" id="nav-username">User</span>
+  </div>
+
+  <!-- Logout -->
+  <button class="btn-logout" id="btn-logout" type="button">Logout</button>
+
+</header>
+
+
+<!-- ══════════════════════════════
+     MAIN DASHBOARD
+══════════════════════════════ -->
+<main class="dashboard-page page-enter" role="main">
+  <div class="container" style="padding-top:36px;">
+
+    <!-- ── Measurement type selection ── -->
+    <section aria-labelledby="type-section-label">
+      <p class="section-label" id="type-section-label">Choose Type</p>
+
+      <div class="type-grid" role="group" aria-label="Measurement types">
+
+        <button class="type-card is-active" data-type="length" type="button" aria-pressed="true" aria-label="Length">
+          <div class="type-card__glow" aria-hidden="true"></div>
+          <div class="type-card__icon" aria-hidden="true">📏</div>
+          <p class="type-card__label">Length</p>
+        </button>
+
+        <button class="type-card" data-type="weight" type="button" aria-pressed="false" aria-label="Weight">
+          <div class="type-card__glow" aria-hidden="true"></div>
+          <div class="type-card__icon" aria-hidden="true">⚖️</div>
+          <p class="type-card__label">Weight</p>
+        </button>
+
+        <button class="type-card" data-type="temperature" type="button" aria-pressed="false" aria-label="Temperature">
+          <div class="type-card__glow" aria-hidden="true"></div>
+          <div class="type-card__icon" aria-hidden="true">🌡️</div>
+          <p class="type-card__label">Temperature</p>
+        </button>
+
+        <button class="type-card" data-type="volume" type="button" aria-pressed="false" aria-label="Volume">
+          <div class="type-card__glow" aria-hidden="true"></div>
+          <div class="type-card__icon" aria-hidden="true">🧪</div>
+          <p class="type-card__label">Volume</p>
+        </button>
+
+      </div>
+    </section>
+
+    <!-- ── Action selection ── -->
+    <section aria-labelledby="action-section-label">
+      <p class="section-label" id="action-section-label">Choose Action</p>
+
+      <div class="action-tabs" role="group" aria-label="Calculator actions">
+        <button class="action-tab-btn is-active" data-action="comparison" type="button">Comparison</button>
+        <button class="action-tab-btn" data-action="conversion" type="button">Conversion</button>
+        <button class="action-tab-btn" data-action="arithmetic" type="button">Arithmetic</button>
+      </div>
+    </section>
+
+    <!-- ── Calculator card (JS renders inside this) ── -->
+    <section aria-label="Calculator">
+      <div class="calc-card" id="calc-card">
+        <!-- Content injected by dashboard.js -->
+      </div>
+    </section>
+
+  </div><!-- /container -->
+</main>
+
+
+<!-- Toast -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- Scripts (order matters: utils first, then page logic) -->
+<script src="js/utils.js"></script>
+<script src="js/dashboard.js"></script>
+
+</body>
+</html>
