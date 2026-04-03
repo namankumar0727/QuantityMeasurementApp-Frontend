@@ -54,13 +54,13 @@ This repository contains the **frontend implementation** of the Quantity Measure
     Event Handling
           │
           ▼
-  API / Service Calls
+    API / Service Calls
           │
           ▼
-Backend / JSON Server
+    Backend / JSON Server
           │
           ▼
-   Response Handling
+    Response Handling
           │
           ▼
        UI Update
