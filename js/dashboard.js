@@ -1,402 +1,312 @@
-/* ============================================================
-   dashboard.js — Dashboard logic: conversions, comparison, arithmetic
-   ============================================================ */
-
-'use strict';
-
-/* ──────────────────────────────────────────
-   Auth guard — redirect if not logged in
-────────────────────────────────────────── */
-
-const currentUser = getSessionUser();
-if (!currentUser) {
-  window.location.href = 'index.html';
-}
-
-// Populate nav
-document.getElementById('nav-username').textContent = currentUser.name.split(' ')[0];
-document.getElementById('nav-avatar').textContent   = currentUser.name.charAt(0).toUpperCase();
-
-document.getElementById('btn-logout').addEventListener('click', logout);
-
-/* ──────────────────────────────────────────
-   Unit definitions
-────────────────────────────────────────── */
-
-// Units exactly as shown in the app reference video
-const UNITS = {
-  length: [
-    'Millimeter',
-    'Centimeter',
-    'Meter',
-    'Kilometer'
-  ],
-  weight: [
-    'Gram',
-    'Kilogram',
-    'Tonne'
-  ],
-  temperature: [
-    'Celsius',
-    'Fahrenheit',
-    'Kelvin'
-  ],
-  volume: [
-    'Milliliter',
-    'Liter',
-    'Cubic Meter'
-  ]
-};
-
-// Conversion factors to SI base unit
-const TO_BASE = {
-  length: {
-    Millimeter: 0.001,
-    Centimeter: 0.01,
-    Meter:      1,
-    Kilometer:  1000
-  },
-  weight: {
-    Gram:      1,
-    Kilogram:  1000,
-    Tonne:     1000000
-  },
-  volume: {
-    Milliliter:    0.001,
-    Liter:         1,
-    'Cubic Meter': 1000
-  }
-};
-
 /**
- * Convert a value from one unit to another
+ * dashboard.js
+ * Handles unit selection, conversion, comparison, and arithmetic operations.
+ * Modular structure: state, units data, UI helpers, calculators.
  */
-function convertValue(val, from, to, type) {
-  if (from === to) return val;
 
-  if (type === 'temperature') {
-    // Step 1: to Celsius
-    let c;
-    if (from === 'Celsius')    c = val;
-    else if (from === 'Fahrenheit') c = (val - 32) * 5 / 9;
-    else                       c = val - 273.15; // Kelvin
-    // Step 2: to target
-    if (to === 'Celsius')    return c;
-    if (to === 'Fahrenheit') return c * 9 / 5 + 32;
-    return c + 273.15; // Kelvin
+// ── Session guard ────────────────────────────────────────────────
+const SESSION_KEY = 'qm_session';
+
+(function guardSession() {
+  const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+  if (!session) {
+    window.location.href = '../index.html';
+    return;
   }
+  const greet = document.getElementById('userGreet');
+  if (greet) greet.textContent = `Hi, ${session.name} 👋`;
+})();
 
-  const base = val * TO_BASE[type][from];
-  return base / TO_BASE[type][to];
+function logout() {
+  localStorage.removeItem(SESSION_KEY);
+  window.location.href = '../index.html';
 }
 
-/* ──────────────────────────────────────────
-   App state
-────────────────────────────────────────── */
-
-let state = {
+// ── App state ────────────────────────────────────────────────────
+const state = {
   type:   'length',
   action: 'comparison',
-  op:     '+'
+  op:     '+',
 };
 
-/* ──────────────────────────────────────────
-   Type card selection
-────────────────────────────────────────── */
+// ── Units data ───────────────────────────────────────────────────
+// All values are factors relative to a base unit (first in each list)
+const UNITS = {
+  length: {
+    base: 'Meter',
+    units: {
+      Kilometer: 1000,
+      Meter:     1,
+      Centimeter:0.01,
+      Millimeter:0.001,
+      Mile:      1609.344,
+      Yard:      0.9144,
+      Foot:      0.3048,
+      Inch:      0.0254,
+    },
+  },
+  weight: {
+    base: 'Kilogram',
+    units: {
+      Kilogram:  1,
+      Gram:      0.001,
+      Milligram: 0.000001,
+      Pound:     0.453592,
+      Ounce:     0.0283495,
+      Tonne:     1000,
+    },
+  },
+  temperature: null, // Special case — handled separately
+  volume: {
+    base: 'Liter',
+    units: {
+      Liter:       1,
+      Milliliter:  0.001,
+      Gallon:      3.78541,
+      Quart:       0.946353,
+      Pint:        0.473176,
+      Cup:         0.24,
+      'Fluid Ounce': 0.0295735,
+      Cubic_Meter: 1000,
+    },
+  },
+};
 
-document.querySelectorAll('.type-card').forEach(card => {
-  card.addEventListener('click', () => {
-    document.querySelectorAll('.type-card').forEach(c => c.classList.remove('is-active'));
-    card.classList.add('is-active');
-    state.type = card.dataset.type;
-    renderCalculator();
-  });
-});
+const TEMP_UNITS = ['Celsius', 'Fahrenheit', 'Kelvin'];
 
-/* ──────────────────────────────────────────
-   Action tab selection
-────────────────────────────────────────── */
-
-document.querySelectorAll('.action-tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.action-tab-btn').forEach(b => b.classList.remove('is-active'));
-    btn.classList.add('is-active');
-    state.action = btn.dataset.action;
-    renderCalculator();
-  });
-});
-
-/* ──────────────────────────────────────────
-   Build <option> list for a unit select
-────────────────────────────────────────── */
-
-function buildOptions(type, selected) {
-  return UNITS[type]
-    .map(u => `<option value="${u}"${u === selected ? ' selected' : ''}>${u}</option>`)
-    .join('');
+// ── Conversion helpers ───────────────────────────────────────────
+function convertToBase(value, unit, type) {
+  if (type === 'temperature') return toTempBase(value, unit);
+  return value * UNITS[type].units[unit];
 }
 
-/* ──────────────────────────────────────────
-   Render calculator based on current state
-────────────────────────────────────────── */
-
-const calcCard = document.getElementById('calc-card');
-
-function renderCalculator() {
-  const { type, action } = state;
-  const units = UNITS[type];
-  const u0 = units[0];
-  const u1 = units[1] || units[0];
-
-  calcCard.innerHTML = '';
-
-  if (action === 'conversion')  renderConversion(type, u0, u1);
-  if (action === 'comparison')  renderComparison(type, u0, u1);
-  if (action === 'arithmetic')  renderArithmetic(type, u0, u1);
+function convertFromBase(baseValue, unit, type) {
+  if (type === 'temperature') return fromTempBase(baseValue, unit);
+  return baseValue / UNITS[type].units[unit];
 }
 
-/* ── Conversion ── */
-function renderConversion(type, u0, u1) {
-  calcCard.innerHTML = `
-    <div class="calc-row">
-      <div>
-        <p class="calc-field__label">From</p>
-        <input class="calc-field__number" type="number" id="from-val" placeholder="0" />
-        <select class="calc-field__select" id="from-unit">${buildOptions(type, u0)}</select>
-      </div>
+function toTempBase(value, unit) {
+  // Base = Celsius
+  if (unit === 'Celsius')    return value;
+  if (unit === 'Fahrenheit') return (value - 32) * 5 / 9;
+  if (unit === 'Kelvin')     return value - 273.15;
+}
 
-      <div class="calc-mid">
-        <button class="btn-swap" id="btn-swap" title="Swap units">
-          <svg viewBox="0 0 24 24"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>
-        </button>
-      </div>
+function fromTempBase(celsius, unit) {
+  if (unit === 'Celsius')    return celsius;
+  if (unit === 'Fahrenheit') return celsius * 9 / 5 + 32;
+  if (unit === 'Kelvin')     return celsius + 273.15;
+}
 
-      <div>
-        <p class="calc-field__label">To</p>
-        <input class="calc-field__number" type="number" id="to-val" placeholder="0" />
-        <select class="calc-field__select" id="to-unit">${buildOptions(type, u1)}</select>
-      </div>
+function convertValue(value, fromUnit, toUnit, type) {
+  if (fromUnit === toUnit) return value;
+  const base = convertToBase(value, fromUnit, type);
+  return convertFromBase(base, toUnit, type);
+}
+
+function round(n, decimals = 6) {
+  return parseFloat(n.toFixed(decimals));
+}
+
+function formatNum(n) {
+  if (Math.abs(n) >= 1e6 || (Math.abs(n) < 0.0001 && n !== 0)) {
+    return n.toExponential(4);
+  }
+  return round(n, 4).toString();
+}
+
+// ── Unit select population ───────────────────────────────────────
+function getUnitList(type) {
+  if (type === 'temperature') return TEMP_UNITS;
+  return Object.keys(UNITS[type].units);
+}
+
+function populateSelect(selectEl, type, selectedValue) {
+  const units = getUnitList(type);
+  selectEl.innerHTML = '';
+  units.forEach(unit => {
+    const opt = document.createElement('option');
+    opt.value = unit;
+    opt.textContent = unit.replace('_', ' ');
+    if (unit === selectedValue) opt.selected = true;
+    selectEl.appendChild(opt);
+  });
+}
+
+function syncUnits() {
+  const fromUnit = document.getElementById('fromUnit').value;
+  const toSelect = document.getElementById('toUnit');
+  const current  = toSelect.value;
+  populateSelect(toSelect, state.type, current || undefined);
+}
+
+// ── Type selection ───────────────────────────────────────────────
+function selectType(card) {
+  document.querySelectorAll('.type-card').forEach(c => c.classList.remove('active'));
+  card.classList.add('active');
+  state.type = card.dataset.type;
+  rebuildUnits();
+  calculate();
+}
+
+function rebuildUnits() {
+  const units = getUnitList(state.type);
+  const fromSel = document.getElementById('fromUnit');
+  const toSel   = document.getElementById('toUnit');
+  populateSelect(fromSel, state.type, units[0]);
+  populateSelect(toSel,   state.type, units[1] || units[0]);
+}
+
+// ── Action selection ─────────────────────────────────────────────
+function selectAction(btn) {
+  document.querySelectorAll('.action-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.action = btn.dataset.action;
+  updateLayout();
+  calculate();
+}
+
+function updateLayout() {
+  const arrowDiv  = document.getElementById('arrowOrOp');
+  const arithDiv  = document.getElementById('arithOps');
+  const fromLabel = document.getElementById('fromLabel');
+  const toLabel   = document.getElementById('toLabel');
+  const toInput   = document.getElementById('toVal');
+
+  if (state.action === 'arithmetic') {
+    arrowDiv.style.display = 'none';
+    arithDiv.style.display = 'block';
+    fromLabel.textContent = 'VALUE A';
+    toLabel.textContent   = 'VALUE B';
+    toInput.readOnly      = false;
+  } else {
+    arrowDiv.style.display = 'flex';
+    arithDiv.style.display = 'none';
+    fromLabel.textContent = 'FROM';
+    toLabel.textContent   = state.action === 'comparison' ? 'TO' : 'TO';
+    toInput.readOnly      = state.action === 'conversion';
+    if (state.action === 'conversion') toInput.value = '';
+  }
+}
+
+// ── Arithmetic operator dropdown ─────────────────────────────────
+const OP_LABELS = {
+  '+': { symbol: '+', label: 'Add' },
+  '-': { symbol: '−', label: 'Subtract' },
+  '×': { symbol: '×', label: 'Multiply' },
+  '÷': { symbol: '÷', label: 'Divide' },
+};
+
+function buildOpDropdown() {
+  const container = document.getElementById('arithOps');
+  container.innerHTML = `
+    <div class="op-dropdown-btn" id="opDropBtn" onclick="toggleOpMenu()">
+      <span id="opDropLabel">${OP_LABELS[state.op].symbol}</span>
+      <span class="op-caret" id="opCaret">▲</span>
     </div>
-
-    ${resultBoxHTML('Conversion Result', 'Enter a value to convert')}
-  `;
-
-  // Live conversion: from → to
-  const fromVal  = document.getElementById('from-val');
-  const toVal    = document.getElementById('to-val');
-  const fromUnit = document.getElementById('from-unit');
-  const toUnit   = document.getElementById('to-unit');
-
-  function doConvert() {
-    const v = parseFloat(fromVal.value);
-    const res = document.getElementById('result-value');
-    if (isNaN(v)) { setResultEmpty(res); return; }
-    const converted = convertValue(v, fromUnit.value, toUnit.value, type);
-    toVal.value = formatNum(converted);
-    setResultValue(res, `${formatNum(v)} ${fromUnit.value} = ${formatNum(converted)} ${toUnit.value}`);
-  }
-
-  function doConvertReverse() {
-    const v = parseFloat(toVal.value);
-    const res = document.getElementById('result-value');
-    if (isNaN(v)) { setResultEmpty(res); return; }
-    const converted = convertValue(v, toUnit.value, fromUnit.value, type);
-    fromVal.value = formatNum(converted);
-    setResultValue(res, `${formatNum(converted)} ${fromUnit.value} = ${formatNum(v)} ${toUnit.value}`);
-  }
-
-  fromVal.addEventListener('input', doConvert);
-  fromUnit.addEventListener('change', doConvert);
-  toUnit.addEventListener('change', doConvert);
-  toVal.addEventListener('input', doConvertReverse);
-
-  document.getElementById('btn-swap').addEventListener('click', () => {
-    const tmpUnit = fromUnit.value;
-    const tmpVal  = fromVal.value;
-    fromUnit.value = toUnit.value;
-    toUnit.value   = tmpUnit;
-    fromVal.value  = toVal.value;
-    toVal.value    = tmpVal;
-    doConvert();
-  });
-}
-
-/* ── Comparison ── */
-function renderComparison(type, u0, u1) {
-  calcCard.innerHTML = `
-    <div class="calc-row">
-      <div>
-        <p class="calc-field__label">Value A</p>
-        <input class="calc-field__number" type="number" id="from-val" placeholder="1" value="1" />
-        <select class="calc-field__select" id="from-unit">${buildOptions(type, u0)}</select>
-      </div>
-
-      <div class="calc-mid">
-        <p class="vs-label">vs</p>
-      </div>
-
-      <div>
-        <p class="calc-field__label">Value B</p>
-        <input class="calc-field__number" type="number" id="to-val" placeholder="1000" value="1000" />
-        <select class="calc-field__select" id="to-unit">${buildOptions(type, u1)}</select>
-      </div>
-    </div>
-
-    <button class="btn-calculate" id="btn-compare">Compare</button>
-
-    ${resultBoxHTML('Comparison Result', 'Press Compare to see result')}
-  `;
-
-  function doCompare() {
-    const aVal = parseFloat(document.getElementById('from-val').value) || 0;
-    const bVal = parseFloat(document.getElementById('to-val').value) || 0;
-    const aUnit = document.getElementById('from-unit').value;
-    const bUnit = document.getElementById('to-unit').value;
-
-    // Convert B to A's unit for comparison
-    const bInA = convertValue(bVal, bUnit, aUnit, type);
-
-    let sym, colorClass;
-    if (aVal < bInA)       { sym = '<'; colorClass = 'color:#1565c0'; }
-    else if (aVal > bInA)  { sym = '>'; colorClass = 'color:#c62828'; }
-    else                   { sym = '='; colorClass = 'color:#2e7d32'; }
-
-    const res = document.getElementById('result-value');
-    res.className = 'result-value';
-    res.innerHTML = `<span style="${colorClass};font-size:19px;">${formatNum(aVal)} ${aUnit} &nbsp;${sym}&nbsp; ${formatNum(bVal)} ${bUnit}</span>`;
-  }
-
-  document.getElementById('btn-compare').addEventListener('click', doCompare);
-  // Also run on Enter key in inputs
-  ['from-val','to-val'].forEach(id => {
-    document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') doCompare(); });
-  });
-
-  doCompare(); // auto-run with default values
-}
-
-/* ── Arithmetic ── */
-function renderArithmetic(type, u0, u1) {
-  calcCard.innerHTML = `
-    <div class="arith-row">
-      <div>
-        <p class="calc-field__label">Value A</p>
-        <input class="calc-field__number" type="number" id="a-val" placeholder="0" />
-        <select class="calc-field__select" id="a-unit">${buildOptions(type, u0)}</select>
-      </div>
-
-      <div class="op-block">
-        <p class="op-block__label">Operator</p>
-        <div class="op-buttons">
-          <button class="btn-op is-active" data-op="+">+</button>
-          <button class="btn-op" data-op="-">−</button>
-          <button class="btn-op" data-op="*">×</button>
-          <button class="btn-op" data-op="/">÷</button>
+    <div class="op-menu" id="opMenu">
+      ${Object.entries(OP_LABELS).map(([key, val]) => `
+        <div class="op-menu-item ${key === state.op ? 'selected' : ''}" onclick="selectOp('${key}')">
+          <span class="op-symbol">${val.symbol}</span>
+          <span>${val.label}</span>
         </div>
-      </div>
-
-      <div>
-        <p class="calc-field__label">Value B</p>
-        <input class="calc-field__number" type="number" id="b-val" placeholder="0" />
-        <select class="calc-field__select" id="b-unit">${buildOptions(type, u1)}</select>
-      </div>
-
-      <div class="equals-sign">=</div>
-
-      <div>
-        <p class="calc-field__label">Result Unit</p>
-        <input class="calc-field__number" id="res-display" placeholder="—" readonly
-          style="background:var(--clr-bg);cursor:default;font-size:18px;" />
-        <select class="calc-field__select" id="res-unit">${buildOptions(type, u0)}</select>
-      </div>
+      `).join('')}
     </div>
-
-    <button class="btn-calculate" id="btn-calc">Calculate</button>
-
-    ${resultBoxHTML('Arithmetic Result', 'Press Calculate to see result')}
   `;
+}
 
-  // Operator buttons
-  document.querySelectorAll('.btn-op').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.btn-op').forEach(b => b.classList.remove('is-active'));
-      btn.classList.add('is-active');
-      state.op = btn.dataset.op;
-    });
+function toggleOpMenu() {
+  const menu  = document.getElementById('opMenu');
+  const caret = document.getElementById('opCaret');
+  const open  = menu.classList.toggle('open');
+  caret.classList.toggle('open', open);
+}
+
+function selectOp(op) {
+  state.op = op;
+  const label = document.getElementById('opDropLabel');
+  if (label) label.textContent = OP_LABELS[op].symbol;
+
+  document.querySelectorAll('.op-menu-item').forEach(item => {
+    const sym = item.querySelector('.op-symbol').textContent;
+    item.classList.toggle('selected', sym === OP_LABELS[op].symbol);
   });
 
-  document.getElementById('btn-calc').addEventListener('click', () => {
-    const aVal  = parseFloat(document.getElementById('a-val').value);
-    const bVal  = parseFloat(document.getElementById('b-val').value);
-    const aUnit = document.getElementById('a-unit').value;
-    const bUnit = document.getElementById('b-unit').value;
-    const rUnit = document.getElementById('res-unit').value;
-    const res   = document.getElementById('result-value');
+  // Close menu
+  const menu  = document.getElementById('opMenu');
+  const caret = document.getElementById('opCaret');
+  if (menu)  menu.classList.remove('open');
+  if (caret) caret.classList.remove('open');
 
-    if (isNaN(aVal) || isNaN(bVal)) {
-      showToast('Please enter both values.', 'error');
-      return;
-    }
+  calculate();
+}
 
-    // Convert both to result unit
-    const aConverted = convertValue(aVal, aUnit, rUnit, type);
-    const bConverted = convertValue(bVal, bUnit, rUnit, type);
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('opMenu');
+  const btn  = document.getElementById('opDropBtn');
+  if (menu && !menu.contains(e.target) && btn && !btn.contains(e.target)) {
+    menu.classList.remove('open');
+    const caret = document.getElementById('opCaret');
+    if (caret) caret.classList.remove('open');
+  }
+});
 
+// ── Main calculate function ──────────────────────────────────────
+function calculate() {
+  const fromVal  = parseFloat(document.getElementById('fromVal').value);
+  const toVal    = parseFloat(document.getElementById('toVal').value);
+  const fromUnit = document.getElementById('fromUnit').value;
+  const toUnit   = document.getElementById('toUnit').value;
+  const resultEl = document.getElementById('resultText');
+  const resultBox = document.getElementById('resultBox');
+
+  function setResult(text, isError = false) {
+    resultEl.textContent = text;
+    resultEl.className   = isError ? 'error' : '';
+    // Re-trigger animation
+    resultBox.classList.remove('result-pop');
+    void resultBox.offsetWidth;
+    resultBox.classList.add('result-pop');
+  }
+
+  if (state.action === 'comparison') {
+    if (isNaN(fromVal) || isNaN(toVal)) { setResult('Enter values to compare', true); return; }
+    const fromBase = convertToBase(fromVal, fromUnit, state.type);
+    const toBase   = convertToBase(toVal,   toUnit,   state.type);
+    let symbol = fromBase < toBase ? '<' : fromBase > toBase ? '>' : '=';
+    setResult(`${formatNum(fromVal)} ${fromUnit} ${symbol} ${formatNum(toVal)} ${toUnit}`);
+
+  } else if (state.action === 'conversion') {
+    if (isNaN(fromVal)) { setResult('Enter a value to convert', true); return; }
+    const converted = convertValue(fromVal, fromUnit, toUnit, state.type);
+    document.getElementById('toVal').value = formatNum(converted);
+    setResult(`${formatNum(fromVal)} ${fromUnit} = ${formatNum(converted)} ${toUnit}`);
+
+  } else if (state.action === 'arithmetic') {
+    if (isNaN(fromVal) || isNaN(toVal)) { setResult('Enter both values', true); return; }
+    const aBase = convertToBase(fromVal, fromUnit, state.type);
+    const bBase = convertToBase(toVal,   toUnit,   state.type);
     let result;
     switch (state.op) {
-      case '+': result = aConverted + bConverted; break;
-      case '-': result = aConverted - bConverted; break;
-      case '*': result = aConverted * bConverted; break;
-      case '/':
-        if (bConverted === 0) { showToast('Cannot divide by zero.', 'error'); return; }
-        result = aConverted / bConverted;
+      case '+': result = aBase + bBase; break;
+      case '-': result = aBase - bBase; break;
+      case '×': result = aBase * bBase; break;
+      case '÷':
+        if (bBase === 0) { setResult('Cannot divide by zero', true); return; }
+        result = aBase / bBase;
         break;
     }
-
-    const opSymbols = { '+': '+', '-': '−', '*': '×', '/': '÷' };
-    document.getElementById('res-display').value = formatNum(result);
-    setResultValue(
-      res,
-      `${formatNum(aVal)} ${aUnit}  ${opSymbols[state.op]}  ${formatNum(bVal)} ${bUnit}  =  ${formatNum(result)} ${rUnit}`
-    );
-  });
+    const resultInFrom = convertFromBase(result, fromUnit, state.type);
+    const opSym = OP_LABELS[state.op].symbol;
+    setResult(`${formatNum(fromVal)} ${fromUnit} ${opSym} ${formatNum(toVal)} ${toUnit} = ${formatNum(resultInFrom)} ${fromUnit}`);
+  }
 }
 
-/* ──────────────────────────────────────────
-   Result box helpers
-────────────────────────────────────────── */
-
-function resultBoxHTML(label, emptyMsg) {
-  return `
-    <div class="result-box" style="margin-top:24px;">
-      <div class="result-icon">
-        <svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-      </div>
-      <div class="result-content">
-        <p class="result-label">${label}</p>
-        <p class="result-value is-empty" id="result-value">${emptyMsg}</p>
-      </div>
-    </div>
-  `;
-}
-
-function setResultValue(el, text) {
-  // Clone-replace to retrigger CSS animation on every update
-  const fresh = el.cloneNode(false);
-  fresh.textContent = text;
-  fresh.className   = 'result-value';
-  el.replaceWith(fresh);
-}
-
-function setResultEmpty(el) {
-  const fresh = el.cloneNode(false);
-  fresh.textContent = 'Enter a value to convert';
-  fresh.className   = 'result-value is-empty';
-  el.replaceWith(fresh);
-}
-
-/* ──────────────────────────────────────────
-   Init
-────────────────────────────────────────── */
-
-renderCalculator();
+// ── Init ─────────────────────────────────────────────────────────
+(function init() {
+  rebuildUnits();
+  buildOpDropdown();
+  updateLayout();
+  calculate();
+})();
