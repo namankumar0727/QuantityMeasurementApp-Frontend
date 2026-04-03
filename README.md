@@ -24,14 +24,8 @@ This repository contains the **frontend implementation** of the Quantity Measure
 - Real-time calculations and updates  
 - Input validation and error handling  
 
-### 🔗 API Integration  
-- Fetch API for backend communication  
-- JSON Server integration (mock backend)  
-- Seamless data flow between frontend and backend  
-
 ### 🧩 Development Approaches  
 - Vanilla HTML, CSS, JavaScript implementation  
-- Angular-based scalable architecture  
 - Modular and reusable components  
 
 ---
@@ -75,9 +69,6 @@ This repository contains the **frontend implementation** of the Quantity Measure
 | HTML5            | Structure of the web application          |
 | CSS3             | Styling (Flexbox, Grid)                   |
 | JavaScript (ES6+)| Core frontend logic                       |
-| Angular          | Frontend Framework (TypeScript-based)     |
-| JSON Server      | Mock backend for API testing              |
-| TypeScript       | Strongly typed JavaScript (Angular)       |
 
 ---
 
@@ -90,7 +81,6 @@ Build the application using core web technologies to strengthen fundamentals and
 - HTML5  
 - CSS3 (Flexbox, Grid)  
 - JavaScript (ES6+)  
-- JSON Server (Mock Backend)  
 
 ### ✨ Features  
 - 📏 Unit Conversion UI  
@@ -129,7 +119,6 @@ Build the application using core web technologies to strengthen fundamentals and
 This frontend implementation provides a **robust and scalable UI system** using:
 
 - **Vanilla JavaScript for strong fundamentals**  
-- **Angular for scalable architecture**  
 - **Clean coding practices for maintainability**  
 
 Together, they ensure a **modern, efficient, and production-ready frontend application**.
